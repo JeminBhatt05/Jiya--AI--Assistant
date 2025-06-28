@@ -1,11 +1,13 @@
-# Import required modules
-import mysql.connector
-import pandas as pd
 from flask import Flask, render_template, request
+import pandas as pd
+import mysql.connector
 import os
+
 app = Flask(__name__)
 
-# Database connection details
+
+
+#connection for database of mysql 
 db_config = {
     'host': 'localhost',
     'user': 'root',
@@ -17,155 +19,150 @@ db_config = {
 def get_db_connection():
     return mysql.connector.connect(**db_config)
 
-# Flask constructor
 
-data_list=[]
-# Root endpoint for file upload form
-@app.get('/')
+uploaded_data = pd.DataFrame()
+items = ['', 'id', 'name', 'mn', 'language', 'gender']
+
+
+
+@app.route('/')
 def upload():
-    return render_template('upload-excel.html')
+    return render_template('select1.html', items=items)
 
-df=pd.read_excel("jemin_test1.xlsx")
-data_list=df.to_dict('records')
-id=[]
-name=[]
-mn=[]
-language=[]
-gender=[]
-for i in data_list:
-    id.append(i['id'])
-    name.append(i['name'])
-    mn.append(i['mn'])
-    language.append(i['language'])
-    gender.append(i['gender'])
-
-
-
-def insert_data():
-    
-    connection = get_db_connection()
-    cursor = connection.cursor()
-
-
-    for i in data_list:
-        datasql=[(i['id'],i['name'],i['mn'],i['language'],i['gender'])]   
-        sql="INSERT INTO employe(id,name,mn,language,gender) VALUES (%s,%s,%s,%s,%s)"
-
-        cursor.executemany(sql,datasql)
-        connection.commit()
-    print("suceess")
-insert_data()
-
-# Endpoint to handle uploaded file and display its contents
-@app.post('/insert_data')
+@app.post('/view')
 def view():
-    # Get the uploaded file from the request
+    global uploaded_data
+
     file = request.files['file']
-
     if file.filename == '':
-        return "No file selected"
+        return "No file selected."
 
-    # Save the file to a temporary location (optional but safer for large files)
     filepath = os.path.join("uploads", file.filename)
     os.makedirs("uploads", exist_ok=True)
     file.save(filepath)
 
-    # Read the Excel file into a Pandas DataFrame
     try:
-        data = pd.read_excel(filepath)
+        uploaded_data = pd.read_excel(filepath)
     except Exception as e:
         return f"Error reading Excel file: {e}"
-    
-    # Clean up (optional)
-    items = ['id', 'name', 'mn', 'language','gender']
-    
-    os.remove(filepath)
-    
-    return render_template('upload-excel.html',items=items)
-    
+    finally:
+        os.remove(filepath)
+
+    return render_template('select1.html', items=items, success="File uploaded successfully. Now select the mappings.")
 
 @app.route('/submit_selection', methods=['POST'])
 def submit_selection():
-    selected_value = request.form.get('my_dropdown')
-    # 'my_dropdown_name' should match the 'name' attribute of your select tag in HTML
-    return f"You selected: {selected_value}"
+    global uploaded_data
 
-# @app.route('/insert_data', methods=['POST'])
-# def insert_data():
-    
-#     connection = get_db_connection()
-#     cursor = connection.cursor()
+    if uploaded_data.empty:
+        return render_template('select1.html', items=items, error="No data found. Please upload an Excel file first.")
+
+    selections = [
+        request.form.get('selected_item'),
+        request.form.get('selected_item1'),
+        request.form.get('selected_item2'),
+        request.form.get('selected_item3'),
+        request.form.get('selected_item4'),
+    ]
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    if 'item1' in request.form:
+        sql="ALTER TABLE employe ADD UNIQUE (id);"
+        cursor.execute(sql)
+        connection.commit()
+        cursor.close()
+        connection.close()
+    elif 'item2' in request.form:
+        sql="ALTER TABLE employe ADD UNIQUE (name);"
+        cursor.execute(sql)
+        connection.commit()
+        cursor.close()
+        connection.close()
+    elif 'item3' in request.form:
+        sql="ALTER TABLE employe ADD UNIQUE (mn);"
+        cursor.execute(sql)
+        connection.commit()
+        cursor.close()
+        connection.close()
+    elif 'item4' in request.form:
+        sql="ALTER TABLE employe ADD UNIQUE (language);"
+        cursor.execute(sql)
+        connection.commit()
+        cursor.close()
+        connection.close()
+    elif 'item5' in request.form:
+        sql="ALTER TABLE employe ADD UNIQUE (gender);"
+        cursor.execute(sql)
+        connection.commit()
+        cursor.close()
+        connection.close()
+    if len(selections) != len(set(selections)):
+        return render_template('select1.html', items=items, error="Please select different columns for each field.")
+
+    try:
+        store(*selections)
+        return render_template('select1.html', items=items, success="Data inserted successfully.")
+    except Exception as e:
+        return render_template('select1.html', items=items, error=f"Error inserting data: {e}")
+
+a1=[]
+a2=[]
+a3=[]
+a4=[]
+a5=[]
+b1=[]
+b2=[]
+b3=[]
+b4=[]
+b5=[]
 
 
-#     for i in data_list:
-#         datasql=[(i['id'],i['name'],i['mn'],i['language'],i['gender'])]   
-#         sql="INSERT INTO employe(id,name,mn,language,gender) VALUES (%s,%s,%s,%s,%s)"
 
-#         cursor.executemany(sql,datasql)
-#         connection.commit()
-#     print("suceess")
-# insert_data()
 
-# Main Driver Function
+
+def insert_data(data_list):
+    connection = get_db_connection()
+    cursor = connection.cursor()
+    # query = "SELECT * FROM employe"
+
+    # # Fetch data into a DataFrame
+    # df = pd.read_sql(query, cursor)
+    # my_dict=df.to_dict('records')
+        
+    sql = "INSERT INTO employe(id, name, mn, language, gender) VALUES (%s, %s, %s, %s, %s)"
+    values = [(i['id'], i['name'], i['mn'], i['language'], i['gender']) for i in data_list]
+    cursor.executemany(sql, values)
+    connection.commit()
+    cursor.close()
+    connection.close()
+
+def store(s, s1, s2, s3, s4):
+    global uploaded_data
+    # connection = get_db_connection()
+    # cursor = connection.cursor()
+    # query = "SELECT * FROM employe"
+
+    # # Fetch data into a DataFrame
+    # df = pd.read_sql(query, cursor)
+    # my_dict=df.to_dict('records')
+    # for i in data_list:
+    #     a1.append(i['id'])
+    #     a2.append(i['name'])
+    #     a3.append(i['mn'])
+    #     a4.append(i['language'])
+    #     a5.append(i['gender'])
+    # for i in my_dict:
+    #     b1.append(i['id'])
+    #     b2.append(i['name'])
+    #     b3.append(i['mn'])
+    #     b4.append(i['language'])
+    #     b5.append(i['gender'])
+    mapping = {'id': s, 'name': s1, 'mn': s2, 'language': s3, 'gender': s4}
+    renamed_df = uploaded_data[[v for v in mapping.values()]].copy()
+    renamed_df.columns = list(mapping.keys())
+    data_list = renamed_df.to_dict(orient='records')
+    insert_data(data_list)
+
+
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
-
-
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Upload Excel</title>
-</head>
-<body>
-    <h2>Upload an Excel File</h2>
-    <form action="{{ url_for('view') }}" method="post" enctype="multipart/form-data">
-        <input type="file" name="file" accept=".xls,.xlsx" required>
-        <input type="submit" value="Upload">
-        <br>id:
-        
-
-    </form>
-    <form action="{{url_for('submit_selection')}}">
-        <select name="selected_item" id="selected_item">
-            {% for item in items %}
-                <option value="{{ item }}" action="{{selected_item}}">{{ item }}</option>
-            {% endfor %}
-        </select>
-        <br>
-        name:
-        <select name="selected_item1" id="selected_item1">
-            {% for item in items %}
-                <option value="{{ item }}">{{ item }}</option>
-            {% endfor %}
-        </select>
-        <br>
-        mn:
-        <select name="selected_item2" id="selected_item2">
-            {% for item in items %}
-                <option value="{{ item }}">{{ item }}</option>
-            {% endfor %}
-        </select>
-        <br>
-        language:
-        <select name="selected_item3" id="selected_item3">
-            {% for item in items %}
-                <option value="{{ item }}">{{ item }}</option>
-            {% endfor %}
-        </select>
-        <br>
-        gender:
-        <select name="selected_item4" id="selected_item4">
-            {% for item in items %}
-                <option value="{{ item }}">{{ item }}</option>
-            {% endfor %}
-        </select>
-        <br>
-        <button type="submit">Submit</button>
-    </form>
-</body>
-</html>
-
-
